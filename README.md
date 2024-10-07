@@ -16,7 +16,7 @@ comments from. For example:
   "API_KEY": "<YOUR_API_KEY>",
   "playlist_ids": [
     "PLfoNZDHitwjU-UZEPlWHRW7SYO20fO6v0",
-    "PLfoNZDHitwjVZtmqicGWg0M4YZgKu6Ahy"
+    "PLfoNZDHitwjX-oU5YVAkfuXkALZqempRS"
   ]
 }
 ```
@@ -26,3 +26,8 @@ comments from. For example:
 To start the ETL Pipeline, run the following command in your terminal
 
 ``python main.py``
+
+## Note
+Errors may occasionally occur with the Youtube Data API. The ETL Script will 
+try a maximum of three (3) times to make the relevant API call before raising
+an error and stopping the extraction process.
