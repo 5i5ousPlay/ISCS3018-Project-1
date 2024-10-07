@@ -1,11 +1,26 @@
 import json
 import re
+import logging
 from html import unescape
 import pandas as pd
 from googleapiclient.discovery import build
 import nltk
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
+
+
+# configure logging
+logging.basicConfig(
+    filename='etl_process.log',
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+    )
+logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
+rootLogger = logging.getLogger()
+consoleHandler = logging.StreamHandler()
+consoleHandler.setFormatter(logFormatter)
+rootLogger.addHandler(consoleHandler)
 
 
 # Initialize NLTK processors
@@ -48,32 +63,40 @@ def extract_comments(video_id: str, video_title: str, video_date):
     video_response = youtube.commentThreads().list(part='snippet,replies',
                                                    videoId=video_id, order="relevance", maxResults=100).execute()
     requests_made = 1
+    error_count = 0
     while 'nextPageToken' in video_response:
-        for item in video_response['items']:
-            comment = item['snippet']['topLevelComment']['snippet']['textDisplay']
-            video = item['snippet']['topLevelComment']['snippet']['videoId']
-            date = item['snippet']['topLevelComment']['snippet']['publishedAt']
-            row = [video_title, video, video_date, comment, date]
-            comments.loc[len(comments)] = row
+        try:
+            if error_count >= 3:
+                logging.error("Extraction failed.")
+                raise Exception("Extraction failed.")
+            for item in video_response['items']:
+                comment = item['snippet']['topLevelComment']['snippet']['textDisplay']
+                video = item['snippet']['topLevelComment']['snippet']['videoId']
+                date = item['snippet']['topLevelComment']['snippet']['publishedAt']
+                row = [video_title, video, video_date, comment, date]
+                comments.loc[len(comments)] = row
 
-            reply_count = item['snippet']['totalReplyCount']
-            if (reply_count > 0) and ('replies' in item):
-                for reply in item['replies']['comments']:
-                    reply_text = reply['snippet']['textDisplay']
-                    video_src = reply['snippet']['videoId']
-                    r_date = reply['snippet']['publishedAt']
-                    row = [video_title, video_src, video_date, reply_text, r_date]
-                    comments.loc[len(comments)] = row
+                reply_count = item['snippet']['totalReplyCount']
+                if (reply_count > 0) and ('replies' in item):
+                    for reply in item['replies']['comments']:
+                        reply_text = reply['snippet']['textDisplay']
+                        video_src = reply['snippet']['videoId']
+                        r_date = reply['snippet']['publishedAt']
+                        row = [video_title, video_src, video_date, reply_text, r_date]
+                        comments.loc[len(comments)] = row
 
-        requests_made += 1
-        print(f"Next comment page found | EXTRACTING DATA | REQUESTS MADE: {requests_made} | COMMENT COUNT: {len(comments)}")
-        # print(video_response['nextPageToken'])
-        video_response = youtube.commentThreads().list(part='snippet,replies',
-                                                        videoId=video_id,
-                                                        order="relevance",
-                                                        pageToken=video_response['nextPageToken']).execute()
+            requests_made += 1
+            logging.info(f"Next comment page found | EXTRACTING DATA | REQUESTS MADE: {requests_made} | COMMENT COUNT: {len(comments)}")
+            video_response = youtube.commentThreads().list(part='snippet,replies',
+                                                            videoId=video_id,
+                                                            order="relevance",
+                                                            pageToken=video_response['nextPageToken']).execute()
+        except Exception as e:
+            logging.warning(f"Error encountered: {str(e)}. Re-attempting extraction...")
+            error_count += 1
+            continue
 
-    print(str(len(comments)) + ' comments extracted')
+    logging.info(str(len(comments)) + ' comments extracted')
     return comments
 
 
@@ -82,18 +105,22 @@ def extract_playlist_comments(playlistId: str) -> pd.DataFrame:
     Accepts a playlist id and returns a dataframe of all the comments collected
     from each video within the playlist.
     """
-    comments = pd.DataFrame(columns=['video_title', 'video_id', 'video_date', 'text', 'comment_date'])
-    playlist = get_playlist_videos(playlistId)
-    for video in playlist['items']:
-        video_id = video['contentDetails']['videoId']
-        video_title = video['snippet']['title']
-        video_date = video['snippet']['publishedAt']
-        print(f"EXTRACTING FROM --> {video_title}")
-        comments = pd.concat([comments, extract_comments(video_id, video_title, video_date)], axis=0, join='outer',
-                             ignore_index=False, keys=None, levels=None, names=None)
-        print(f"VIDEO COMMENTS EXTRACTED | PROCEEDING TO NEXT VIDEO | CURRENT COMMENT COUNT: {len(comments)}\n")
-    print("EXTRACTION COMPLETE")
-    return comments.reset_index()
+    try:
+        comments = pd.DataFrame(columns=['video_title', 'video_id', 'video_date', 'text', 'comment_date'])
+        playlist = get_playlist_videos(playlistId)
+        for video in playlist['items']:
+            video_id = video['contentDetails']['videoId']
+            video_title = video['snippet']['title']
+            video_date = video['snippet']['publishedAt']
+            logging.info(f"EXTRACTING FROM --> {video_title}")
+            comments = pd.concat([comments, extract_comments(video_id, video_title, video_date)], axis=0, join='outer',
+                                 ignore_index=False, keys=None, levels=None, names=None)
+            logging.info(f"VIDEO COMMENTS EXTRACTED | PROCEEDING TO NEXT VIDEO | CURRENT COMMENT COUNT: {len(comments)}\n")
+        logging.info("PLAYLIST EXTRACTION COMPLETE")
+        return comments.reset_index()
+    except Exception as e:
+        logging.error(f"An error occurred during the extraction process: {str(e)}. Stopping Extraction.")
+        raise Exception(f"An error occurred during the extraction process: {str(e)}. Stopping Extraction.")
 
 
 # TRANSFORM FUNCTIONS
