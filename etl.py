@@ -19,6 +19,13 @@ class ETL:
     output_dir = "data"  # default output directory
 
     def __init__(self):
+        """
+        Initializes the ETL class by loading configuration from config.json.
+
+        Checks for the presence of 'playlist_ids' and 'output_directory' keys.
+        Creates the output directory if it does not exist and checks if it is writable.
+        Raises exceptions for invalid JSON or missing keys.
+        """
         try:
             with open('config.json', 'r') as f:
                 config = json.load(f)
@@ -54,6 +61,9 @@ class ETL:
             raise e
 
     def _extract(self) -> pd.DataFrame:
+        """
+        Extracts comments from YouTube playlists specified in the playlist_ids.
+        """
         try:
             logging.info("Starting extraction. Please ensure network connectivity. This may take a while...")
             dataframes = []
@@ -70,6 +80,9 @@ class ETL:
             raise Exception(str(e))
 
     def _transform(self, data: pd.DataFrame) -> pd.DataFrame:
+        """
+        Transforms the extracted data by cleaning and processing it.
+        """
         try:
             logging.info("Starting data transformation.")
 
@@ -95,6 +108,9 @@ class ETL:
             raise e
 
     def _load(self, data: pd.DataFrame):
+        """
+        Loads the transformed data into a CSV file.
+        """
         try:
             logging.info("Loading data...")
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -108,6 +124,9 @@ class ETL:
             raise e
 
     def start(self):
+        """
+        Starts the ETL process by executing the extract, transform, and load steps.
+        """
         logging.info("ETL process started.")
         try:
             data = self._extract()
