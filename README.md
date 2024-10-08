@@ -31,6 +31,8 @@ To start the ETL Pipeline, run the following command in your terminal
 ``python main.py``
 
 ## Note
-Errors may occasionally occur with the Youtube Data API. The ETL Script will 
+* Errors may occasionally occur with the Youtube Data API. The ETL Script will 
 try a maximum of three (3) times to make the relevant API call before raising
 an error and stopping the extraction process.
+* To operate within the free quota usage limit of the Youtube Data API, we only 
+extract from the F1 2021 Race Highlights Playlist
