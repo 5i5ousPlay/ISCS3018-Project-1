@@ -1,3 +1,27 @@
+# Intitalizing Virtual Environment
+The etl script needs to be run within a virtual environment. 
+To initialize a virtual environment, run the following command in your terminal
+from within the project directory.
+
+`` python -m venv <your_env_name>``
+
+Your directory structure should look something like this:
+
+```
+Project Directory Structure
+
+project_directory
+|-venv
+    |-Lib
+    |-Scripts
+|-config.json
+|-etl.py
+|-functions.py
+|-main.py
+|-README.md
+|-requirements.txt
+```
+
 # Install Dependencies
 
 To install the needed dependencies for the ETL Pipeline,
